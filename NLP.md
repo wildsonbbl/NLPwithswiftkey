@@ -21,7 +21,6 @@ Load the R packages needed further. It's also good to set system locale to avoid
 ```r
 library(data.table, quietly = T, warn.conflicts = F)
 library(dplyr, quietly = T, warn.conflicts = F)
-library(plotly, quietly = T, warn.conflicts = F)
 library(ggplot2, quietly = T, warn.conflicts = F)
 library(ggpubr, quietly = T, warn.conflicts = F)
 library(quanteda, quietly = T, warn.conflicts = F)
@@ -37,27 +36,6 @@ library(quanteda, quietly = T, warn.conflicts = F)
 
 ```
 ## See https://quanteda.io for tutorials and examples.
-```
-
-```r
-library(tm, quietly = T, warn.conflicts = F)
-```
-
-```
-## 
-## Attaching package: 'NLP'
-```
-
-```
-## The following objects are masked from 'package:quanteda':
-## 
-##     meta, meta<-
-```
-
-```
-## The following object is masked from 'package:ggplot2':
-## 
-##     annotate
 ```
 
 ```r
@@ -111,54 +89,52 @@ We have texts that come from 3 different type of source: blogs, news and twitter
 
 
 ```r
-if(!file.exists(paste0(datadir,'/sample.txt'))){
-        textsnews <- fread(text=sourcepaths[2],
-                           header = F,
-                           sep = '',
-                           sep2='',
-                           data.table = T,
-                           quote='')
-                
-        textsnews <- rbind(textsnews,fread(text=sourcepaths[2],
-                           header = F,
-                           sep = '',
-                           sep2='',
-                           data.table = T,
-                           quote='',
-                           skip = 987097))
-                
-        textstwitter <- fread(text=sourcepaths[3],
-                           header = F,
-                           sep = '',
-                           sep2='',
-                           data.table = T,
-                           quote='')
-                
-        textsblogs<-fread(text=sourcepaths[1],
-                           header = F,
-                           sep = '',
-                           sep2='',
-                           data.table = T,
-                           quote=' ')
-                
-        textsblogs <- rbind(textsblogs,
-                            fread(text=sourcepaths[1],
+textsnews <- fread(text=sourcepaths[2],
+                   header = F,
+                   sep = '',
+                   sep2='',
+                   data.table = T,
+                   quote='')
+
+textsnews <- rbind(textsnews,fread(text=sourcepaths[2],
                                    header = F,
                                    sep = '',
                                    sep2='',
                                    data.table = T,
-                                   quote=' ',
-                                   skip = 615492))
-                
-        textsblogs <- rbind(textsblogs,
-                            fread(text=sourcepaths[1],
-                                   header = F,
-                                   sep = '',
-                                   sep2='',
-                                   data.table = T,
-                                   quote=' ',
-                                   skip = 741885))
-        }
+                                   quote='',
+                                   skip = 987097))
+
+textstwitter <- fread(text=sourcepaths[3],
+                      header = F,
+                      sep = '',
+                      sep2='',
+                      data.table = T,
+                      quote='')
+
+textsblogs<-fread(text=sourcepaths[1],
+                  header = F,
+                  sep = '',
+                  sep2='',
+                  data.table = T,
+                  quote=' ')
+
+textsblogs <- rbind(textsblogs,
+                    fread(text=sourcepaths[1],
+                          header = F,
+                          sep = '',
+                          sep2='',
+                          data.table = T,
+                          quote=' ',
+                          skip = 615492))
+
+textsblogs <- rbind(textsblogs,
+                    fread(text=sourcepaths[1],
+                          header = F,
+                          sep = '',
+                          sep2='',
+                          data.table = T,
+                          quote=' ',
+                          skip = 741885))
 ```
 
 ## Brief Exploratory Data Analysis
@@ -182,21 +158,21 @@ twitter <- textstwitter %>%
 
 
 ```r
-g1<- ggplot(twitter, aes(x = compri)) 
+g1<- ggplot(mapping=aes(x = twitter$compri)) 
 g1 <- g1 + geom_histogram(binwidth = 10) + theme_bw() 
 g1 <- g1 + labs(title ='Twitter', x = 'Length')
 ```
 
 
 ```r
-g2 <- ggplot(blogs, aes(x = compri)) 
+g2 <- ggplot(mapping=aes(x = blogs$compri)) 
 g2 <- g2 + geom_histogram(binwidth = 100) + theme_bw()
 g2 <- g2 + labs(title ='Blogs', x = 'Length')
 ```
 
 
 ```r
-g3 <- ggplot(news, aes(x = compri)) 
+g3 <- ggplot(mapping=aes(x = news$compri)) 
 g3 <- g3 + geom_histogram(binwidth = 100) + theme_bw()
 g3 <- g3 + labs(title ='News', x = 'Length')
 ```
@@ -218,21 +194,21 @@ news <- news %>% filter(compri < 1500)
 
 
 ```r
-g1<- ggplot(twitter, aes(x = compri)) 
+g1<- ggplot(mapping=aes(x = twitter$compri)) 
 g1 <- g1 + geom_histogram(binwidth = 10) + theme_bw() 
 g1 <- g1 + labs(title ='Twitter', x = 'Length')
 ```
 
 
 ```r
-g2 <- ggplot(blogs, aes(x = compri)) 
+g2 <- ggplot(mapping=aes(x = blogs$compri)) 
 g2 <- g2 + geom_histogram(binwidth = 100) + theme_bw()
 g2 <- g2 + labs(title ='Blogs', x = 'Length')
 ```
 
 
 ```r
-g3 <- ggplot(news, aes(x = compri)) 
+g3 <- ggplot(mapping=aes(x = news$compri)) 
 g3 <- g3 + geom_histogram(binwidth = 100) + theme_bw()
 g3 <- g3 + labs(title ='News', x = 'Length')
 ```
@@ -318,15 +294,12 @@ if(!file.exists(paste0(datadir,'/sample.txt'))){
         texts <- slice_sample(twitter, n = 3e4, replace=F)
         texts <- rbind(texts,slice_sample(blogs, n = 3e4, replace=F))
         texts <- rbind(texts,slice_sample(news, n = 3e4, replace=F))
-        write.table(texts,file = paste0(datadir,'/sample.txt'))
+        write.table(texts$V1,file = paste0(datadir,'/sample.txt'),row.names = F,col.names = F)
 }else{
         texts <- fread(text=paste0(datadir,'/sample.txt'),
                                    header = F,
                                    sep = '',
-                                   sep2='',
-                                   data.table = T,
-                                   quote=' ',
-                                   skip = 741885)
+                                   data.table = T)
 }
 ```
 
@@ -339,36 +312,30 @@ We build a corpus using the Quanteda package.
 modelcorpus <- corpus(texts$V1)
 ```
 
-Let's take a look at the sentence distribution from the corpus.
-
-
-```r
-g <- ggplot(data = summary(modelcorpus), aes(x = Sentences))
-g<- g + theme_bw() + geom_histogram(binwidth = 1)
-g
-```
-
-![](NLP_files/figure-html/unnamed-chunk-21-1.png)<!-- -->
-
-Mainly one sentence texts, followed by 2 and 3.
-
 ### Document-Feature Matrix
 
 First we need to make word tokens, removing stop words, punctuation, numbers, symbols, separators. This way we can do a better data analysis. Then we make the dfm.
 
 
 ```r
-modeldfm <- tokens(modelcorpus,
+modeltokens <- tokens(modelcorpus,
                      remove_punct = TRUE,
                      remove_symbols = T,
                      remove_separators = T,
-                     remove_numbers=T) %>%
+                     remove_numbers=T,
+                     what = 'word') %>%
         tokens_select(stopwords('english'), 
-                      selection = 'remove',
-                      min_nchar = 2) %>% dfm()
+                      selection = 'remove') %>%
+        tokens_remove(pattern = '[^A-Za-z]|^[a-zA-Z]$',valuetype = 'regex')
 ```
 
-What is the top 20 features of the corpus?
+
+
+```r
+modeldfm <-  modeltokens %>% dfm()
+```
+
+What is the top 10 features of the corpus?
 
 
 ```r
@@ -376,8 +343,8 @@ topfeatures(modeldfm,10)
 ```
 
 ```
-## said will  one just like  can time  get  new  now 
-## 8716 8198 7678 6812 6233 6078 5479 5172 4662 4087
+##   said    one   just   like    can   time    get    new    now people 
+##   9030   7725   6889   6298   6217   5478   5002   4794   4092   4084
 ```
 
 A better way to see this is a word cloud.
@@ -397,18 +364,12 @@ Now we do the same as before but with 2-grams tokens.
 
 
 ```r
-modeldfm2 <- tokens(modelcorpus,
-                     remove_punct = TRUE,
-                     remove_symbols = T,
-                     remove_separators = T,
-                     remove_numbers=T) %>%
-        tokens_select(stopwords('english'), 
-                      selection = 'remove',
-                      min_nchar = 2) %>%
-        tokens_ngrams( n = 2 ) %>% dfm()
+modeldfm2 <- modeltokens %>% 
+        tokens_ngrams( n = 2 , concatenator = ' ') %>% 
+        dfm()
 ```
 
-The top 20 and the word cloud.
+The top 10 and the word cloud.
 
 
 ```r
@@ -416,10 +377,10 @@ topfeatures(modeldfm2,10)
 ```
 
 ```
-##   last_year    new_york   right_now       iâ_ve high_school     youâ_re 
-##         536         513         501         459         388         340 
-##   last_week   years_ago  first_time    st_louis 
-##         335         332         325         300
+##    new york   last year   right now   years ago high school   last week 
+##         544         521         474         392         384         364 
+##  first time   feel like  last night   make sure 
+##         321         313         303         282
 ```
 
 ```r
@@ -436,18 +397,11 @@ Once again, we do the same as before but with 3-grams tokens.
 
 
 ```r
-modeldfm3 <- tokens(modelcorpus,
-                     remove_punct = TRUE,
-                     remove_symbols = T,
-                     remove_separators = T,
-                     remove_numbers=T) %>%
-        tokens_select(stopwords('english'), 
-                      selection = 'remove',
-                      min_nchar = 2) %>%
-        tokens_ngrams( n = 3 ) %>% dfm()
+modeldfm3 <- modeltokens %>%
+        tokens_ngrams( n = 3 , concatenator = ' ') %>% dfm()
 ```
 
-The top 20 and the word cloud.
+The top 10 and the word cloud.
 
 
 ```r
@@ -455,14 +409,14 @@ topfeatures(modeldfm3,10)
 ```
 
 ```
-##          new_york_city            amp_amp_amp            let_us_know 
-##                     81                     74                     51 
-##           world_war_ii          two_years_ago        st_louis_county 
-##                     37                     35                     35 
-##         new_york_times     gov_chris_christie president_barack_obama 
-##                     33                     33                     30 
-##          cinco_de_mayo 
-##                     29
+##            amp amp amp          new york city          two years ago 
+##                     74                     62                     47 
+##            let us know president barack obama           world war ii 
+##                     38                     37                     34 
+##         new york times             amp amp gt        three years ago 
+##                     28                     28                     27 
+##         five years ago 
+##                     27
 ```
 
 ```r
