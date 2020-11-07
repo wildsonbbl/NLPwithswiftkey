@@ -1,5 +1,5 @@
 ---
-title: "Predicting next word in a sentence with NLP"
+title: "Next word in a sentence with NLP"
 author: "Wildson B B Lima"
 date: "04/11/2020"
 output: 
@@ -11,7 +11,9 @@ output:
 
 ## Synopsis
 
-The goal is to build a next word prediction NLP model using 3 datasets provided by Swiftkey. One from twitter, one from news and one from blogs. Then make a easy to use shiny app with the model.
+The project was to build a next word suggestion (or prediction) app. This was done with a NLP model using 3 datasets provided by Swiftkey. One from twitter, one from news and one from blogs. The dataset provided the means on which the model would be trained. 
+
+The resulted app was made available to use at [this webpage](https://wildson-b-b-lima.shinyapps.io/nextword/?_ga=2.227190941.1485234620.1604767179-10188108.1604271857).
 
 ## Packages
 
@@ -39,6 +41,8 @@ library(quanteda, quietly = T, warn.conflicts = F)
 ```
 
 ```r
+library(wordcloud, quietly = T, warn.conflicts = F)
+
 Sys.setlocale('LC_ALL','English')  
 ```
 
@@ -57,24 +61,33 @@ datazipurl <- 'https://d396qusza40orc.cloudfront.net/dsscapstone/dataset/Courser
 
 datazippath <- paste0(datadir,'/dataset.zip')
 datafinaldir <- paste0(datadir,'/final/en_US')
+profpath <- paste0(datadir,'/profwords.txt')
+```
 
+
+```r
 if(!dir.exists(datadir)){
         dir.create(datadir)
+}
+
+if(!file.exists(profpath)){
+        profurl <- "https://raw.githubusercontent.com/LDNOOBW/List-of-Dirty-Naughty-Obscene-and-Otherwise-Bad-Words/master/en"
+        download.file(profurl, destfile=profpath, mode="wb")
 }
 
 if(!dir.exists(datafinaldir)){
         if(!file.exists(datazippath)){
                 download.file(url = datazipurl,destfile = datazippath,method = 'curl')
-        
-        time <- as.character(Sys.time())
-        timezone <- Sys.timezone()
-        
-        downloadinfo <- data.frame(list(time = time, 
-                             format = "%Y-%m-%d %H:%M:%S",
-                             timezone = timezone))
-        write.table(x = downloadinfo,
-                    file = paste0(datadir,'/downloadinfo.txt'),
-                    row.names = F)
+                
+                time <- as.character(Sys.time())
+                timezone <- Sys.timezone()
+                
+                downloadinfo <- data.frame(list(time = time, 
+                                                format = "%Y-%m-%d %H:%M:%S",
+                                                timezone = timezone))
+                write.table(x = downloadinfo,
+                            file = paste0(datadir,'/downloadinfo.txt'),
+                            row.names = F)
         }
         
         unzip(datazippath,exdir = datadir)
@@ -85,16 +98,23 @@ sourcepaths <- paste0(datafinaldir,'/',dir(paste0(datafinaldir)))
 
 Load data into R. 
 
-We have texts that come from 3 different type of source: blogs, news and twitter. So we load each into a different dataframe to take a look at each separately.
+We have texts that come from 3 different type of source: blogs, news and twitter. So we load each into a different data table to take a look at each separately.
 
 
 ```r
+profwords <- fread(text=profpath,
+                   header = F,
+                   sep = '',
+                   sep2='',
+                   data.table = T,
+                   quote='',stringsAsFactors = F)
+
 textsnews <- fread(text=sourcepaths[2],
                    header = F,
                    sep = '',
                    sep2='',
                    data.table = T,
-                   quote='')
+                   quote='',stringsAsFactors = F)
 
 textsnews <- rbind(textsnews,fread(text=sourcepaths[2],
                                    header = F,
@@ -102,21 +122,21 @@ textsnews <- rbind(textsnews,fread(text=sourcepaths[2],
                                    sep2='',
                                    data.table = T,
                                    quote='',
-                                   skip = 987097))
+                                   skip = 987097,stringsAsFactors = F))
 
 textstwitter <- fread(text=sourcepaths[3],
                       header = F,
                       sep = '',
                       sep2='',
                       data.table = T,
-                      quote='')
+                      quote='',stringsAsFactors = F)
 
 textsblogs<-fread(text=sourcepaths[1],
                   header = F,
                   sep = '',
                   sep2='',
                   data.table = T,
-                  quote=' ')
+                  quote=' ',stringsAsFactors = F)
 
 textsblogs <- rbind(textsblogs,
                     fread(text=sourcepaths[1],
@@ -125,7 +145,7 @@ textsblogs <- rbind(textsblogs,
                           sep2='',
                           data.table = T,
                           quote=' ',
-                          skip = 615492))
+                          skip = 615492,stringsAsFactors = F))
 
 textsblogs <- rbind(textsblogs,
                     fread(text=sourcepaths[1],
@@ -134,7 +154,7 @@ textsblogs <- rbind(textsblogs,
                           sep2='',
                           data.table = T,
                           quote=' ',
-                          skip = 741885))
+                          skip = 741885,stringsAsFactors = F))
 ```
 
 ## Brief Exploratory Data Analysis
@@ -158,23 +178,19 @@ twitter <- textstwitter %>%
 
 
 ```r
-g1<- ggplot(mapping=aes(x = twitter$compri)) 
-g1 <- g1 + geom_histogram(binwidth = 10) + theme_bw() 
-g1 <- g1 + labs(title ='Twitter', x = 'Length')
+makeplot <- function(title,data){
+        g1<- ggplot(mapping=aes(x = data)) 
+        g1 <- g1 + geom_histogram(binwidth = 10) + theme_bw() 
+        g1 <- g1 + labs(title = title, x = 'Length')
+        return(g1)
+}
 ```
 
 
 ```r
-g2 <- ggplot(mapping=aes(x = blogs$compri)) 
-g2 <- g2 + geom_histogram(binwidth = 100) + theme_bw()
-g2 <- g2 + labs(title ='Blogs', x = 'Length')
-```
-
-
-```r
-g3 <- ggplot(mapping=aes(x = news$compri)) 
-g3 <- g3 + geom_histogram(binwidth = 100) + theme_bw()
-g3 <- g3 + labs(title ='News', x = 'Length')
+g1 <-makeplot('Twitter', twitter$compri)
+g2 <-makeplot('Blogs', blogs$compri)
+g3 <-makeplot('News', news$compri)
 ```
 
 
@@ -184,7 +200,7 @@ ggarrange(g1,g2,g3,ncol=3)
 
 ![](NLP_files/figure-html/unnamed-chunk-8-1.png)<!-- -->
 
-We can see there is some potential outliers in blogs and news. We take care of it here.
+We can see there is some potential outliers in blogs and news. We take care of it right away.
 
 
 ```r
@@ -194,23 +210,9 @@ news <- news %>% filter(compri < 1500)
 
 
 ```r
-g1<- ggplot(mapping=aes(x = twitter$compri)) 
-g1 <- g1 + geom_histogram(binwidth = 10) + theme_bw() 
-g1 <- g1 + labs(title ='Twitter', x = 'Length')
-```
-
-
-```r
-g2 <- ggplot(mapping=aes(x = blogs$compri)) 
-g2 <- g2 + geom_histogram(binwidth = 100) + theme_bw()
-g2 <- g2 + labs(title ='Blogs', x = 'Length')
-```
-
-
-```r
-g3 <- ggplot(mapping=aes(x = news$compri)) 
-g3 <- g3 + geom_histogram(binwidth = 100) + theme_bw()
-g3 <- g3 + labs(title ='News', x = 'Length')
+g1 <-makeplot('Twitter', twitter$compri)
+g2 <-makeplot('Blogs', blogs$compri)
+g3 <-makeplot('News', news$compri)
 ```
 
 
@@ -218,9 +220,7 @@ g3 <- g3 + labs(title ='News', x = 'Length')
 ggarrange(g1,g2,g3,ncol=3)
 ```
 
-![](NLP_files/figure-html/unnamed-chunk-13-1.png)<!-- -->
-
-
+![](NLP_files/figure-html/unnamed-chunk-11-1.png)<!-- -->
 
 We have blogs with highest lengths, followed by news then twitter. Nothing out of the expected given the way each one is used.
 
@@ -254,7 +254,7 @@ sometweet
 ## 1 i know how you feel.. i have biostats on tuesday and i have yet to study =/
 ```
 
-Well, you gotta study. We can see there is the presence of emoticons, at least in one tweet. 
+Well, you gotta study. We can see there is the presence of emoticons, at least in one tweet. It will be taken care later.
 
 Now the ones that match the sentence "A computer once beat me at chess, but it was no match for me at kickboxing".
 
@@ -276,36 +276,34 @@ We can see here there is some repeated tweets, which is a very common thing to h
 
 ```r
 nbefore<- lengths(twitter)
-```
-
-
-```r
 twitter <- twitter %>% unique
 nafter<-lengths(twitter)
 ```
 
 We have eliminated 54225 repeated tweets from dataset. The same thing doesn't happen with the other two sources, so let them be.
 
-Now we can take randomly, and without replacement, representative equal size samples from each source to form the dataset to be used further. Since we have a lot of data, and there is some lack of computation resources, it's ok to use smaller samples to get a grasp of what the population would be like.
+Now we can take randomly, and without replacement, representative equal prop samples from each source to form the dataset to be used further. Since we have a lot of data, and there is some lack of computation resources, it's ok to use smaller samples to just get a grasp of what the population would be like.
 
 
 ```r
 if(!file.exists(paste0(datadir,'/sample.txt'))){
-        texts <- slice_sample(twitter, n = 3e4, replace=F)
-        texts <- rbind(texts,slice_sample(blogs, n = 3e4, replace=F))
-        texts <- rbind(texts,slice_sample(news, n = 3e4, replace=F))
+        texts <- slice_sample(twitter, prop = .2, replace=F)
+        texts <- rbind(texts,slice_sample(blogs, prop = .2, replace=F))
+        texts <- rbind(texts,slice_sample(news, prop = .2, replace=F))
         write.table(texts$V1,file = paste0(datadir,'/sample.txt'),row.names = F,col.names = F)
 }else{
         texts <- fread(text=paste0(datadir,'/sample.txt'),
-                                   header = F,
-                                   sep = '',
-                                   data.table = T)
+                       header = F,
+                       sep = '',
+                       data.table = T,stringsAsFactors = F)
 }
 ```
 
+
+
 ### Creating corpus
 
-We build a corpus using the Quanteda package.
+We need to build a corpus with the sample of texts using the Quanteda package to used further.
 
 
 ```r
@@ -314,117 +312,303 @@ modelcorpus <- corpus(texts$V1)
 
 ### Document-Feature Matrix
 
-First we need to make word tokens, removing stop words, punctuation, numbers, symbols, separators. This way we can do a better data analysis. Then we make the dfm.
+First we need to make word tokens, removing stop words, punctuation, numbers, symbols, separators, profane words. This way we can do a better data analysis of the text features. Then we make the dfm from which we take the n-gram frequencies.
 
 
 ```r
-modeltokens <- tokens(modelcorpus,
-                     remove_punct = TRUE,
-                     remove_symbols = T,
-                     remove_separators = T,
-                     remove_numbers=T,
-                     what = 'word') %>%
-        tokens_select(stopwords('english'), 
-                      selection = 'remove') %>%
-        tokens_remove(pattern = '[^A-Za-z]|^[a-zA-Z]$',valuetype = 'regex')
+tokenizer <- function(corpus){
+    words <- tokens(corpus,
+                    remove_punct = TRUE,
+                    remove_symbols = T,
+                    remove_separators = T,
+                    remove_numbers=T,
+                    what = 'word') %>%
+        tokens_remove(stopwords('english')) %>%
+        tokens_remove(pattern = '[^A-Za-z]|^[a-zA-Z]$',valuetype = 'regex') %>%
+        tokens_remove(profwords$V1)
+    return(words)
+}
 ```
-
 
 
 ```r
-modeldfm <-  modeltokens %>% dfm()
+modeltokens <- tokenizer(modelcorpus)
 ```
-
-What is the top 10 features of the corpus?
 
 
 ```r
-topfeatures(modeldfm,10)
+makengramfreq <- function(n=1){
+    
+    model <- modeltokens %>% 
+        tokens_ngrams( n = n , concatenator = ' ') %>% 
+        dfm() %>% docfreq() %>%
+        data.table(ngram = names(.), frequency = .) %>%
+        arrange(desc(frequency)) %>% filter(frequency>1)
+    
+    return(model)
+}
 ```
-
-```
-##   said    one   just   like    can   time    get    new    now people 
-##   9030   7725   6889   6298   6217   5478   5002   4794   4092   4084
-```
-
-A better way to see this is a word cloud.
 
 
 ```r
-textplot_wordcloud(modeldfm, min_count = 6, random_order = FALSE,
-                   rotation = .25, 
-                   color = RColorBrewer::brewer.pal(8,"Dark2"))
+model1 <-  makengramfreq(1)
+model2 <-  makengramfreq(2)
+model3 <-  makengramfreq(3)
 ```
 
-![](NLP_files/figure-html/unnamed-chunk-24-1.png)<!-- -->
+
+
+
+#### 1-gram
+
+What is the top 10 feature frequency of the corpus?
+
+
+```r
+head(model1,10)
+```
+
+```
+##     ngram frequency
+##  1:  just     56040
+##  2:  said     55148
+##  3:   one     50518
+##  4:  like     48601
+##  5:   can     43281
+##  6:   get     41619
+##  7:  time     38537
+##  8:   new     34538
+##  9:   now     33835
+## 10:  good     32526
+```
+
+A better way to see this distribution is a word cloud.
+
+
+```r
+top <- model1 %>% head(100) 
+wordcloud(words = top$ngram,freq = top$frequency,ordered.colors = T,colors =1:100)
+```
+
+![](NLP_files/figure-html/unnamed-chunk-25-1.png)<!-- -->
 
 #### 2-grams
 
-Now we do the same as before but with 2-grams tokens.
+what is the top 10 feature frequency of the corpus?
 
 
 ```r
-modeldfm2 <- modeltokens %>% 
-        tokens_ngrams( n = 2 , concatenator = ' ') %>% 
-        dfm()
+head(model2,10)
 ```
 
-The top 10 and the word cloud.
+```
+##               ngram frequency
+##  1:       right now      5000
+##  2:       last year      3667
+##  3:        new york      3582
+##  4:      last night      3092
+##  5:     high school      2612
+##  6:       years ago      2597
+##  7:       last week      2520
+##  8:       feel like      2484
+##  9:      first time      2362
+## 10: looking forward      2248
+```
 
 
 ```r
-topfeatures(modeldfm2,10)
+top <- model2 %>% head(100) 
+wordcloud(words = top$ngram,freq = top$frequency,ordered.colors = T,colors =1:100)
 ```
 
-```
-##    new york   last year   right now   years ago high school   last week 
-##         544         521         474         392         384         364 
-##  first time   feel like  last night   make sure 
-##         321         313         303         282
-```
-
-```r
-textplot_wordcloud(modeldfm2, min_count = 6, random_order = FALSE,
-                   rotation = .25, 
-                   color = RColorBrewer::brewer.pal(8,"Dark2"))
-```
-
-![](NLP_files/figure-html/unnamed-chunk-26-1.png)<!-- -->
+![](NLP_files/figure-html/unnamed-chunk-27-1.png)<!-- -->
 
 #### 3-grams
 
-Once again, we do the same as before but with 3-grams tokens.
+What is the top 10 feature frequency of the corpus?
 
 
 ```r
-modeldfm3 <- modeltokens %>%
-        tokens_ngrams( n = 3 , concatenator = ' ') %>% dfm()
+head(model3,10)
 ```
 
-The top 10 and the word cloud.
+```
+##                      ngram frequency
+##  1:            let us know       505
+##  2:          new york city       478
+##  3:         happy new year       344
+##  4:      happy mothers day       328
+##  5:          two years ago       308
+##  6: president barack obama       284
+##  7:         new york times       272
+##  8:          cinco de mayo       252
+##  9:           world war ii       223
+## 10:        st louis county       217
+```
 
 
 ```r
-topfeatures(modeldfm3,10)
+top <- model3 %>% head(100) 
+wordcloud(words = top$ngram,freq = top$frequency,ordered.colors = T,colors =1:100)
 ```
 
-```
-##            amp amp amp          new york city          two years ago 
-##                     74                     62                     47 
-##            let us know president barack obama           world war ii 
-##                     38                     37                     34 
-##         new york times             amp amp gt        three years ago 
-##                     28                     28                     27 
-##         five years ago 
-##                     27
-```
+![](NLP_files/figure-html/unnamed-chunk-29-1.png)<!-- -->
+
+## Prediction  Model
+
+We use a [Katz' back-off](https://en.wikipedia.org/wiki/Katz%27s_back-off_model) model, a generative n-gram language model, to predict next words in a sentence. It estimates the conditional probability of a word given its n-gram history.
+
+To do this, we need each n-gram we just build.
+
 
 ```r
-textplot_wordcloud(modeldfm3, min_count = 6, random_order = FALSE,
-                   rotation = .25, 
-                   color = RColorBrewer::brewer.pal(8,"Dark2"))
+model <- rbind(model1,model2)
+rm(model2)
+model <- rbind(model,model3)
+rm(model3)
 ```
 
-![](NLP_files/figure-html/unnamed-chunk-28-1.png)<!-- -->
+We make a function to take input text, calculate the back-off conditional probability with the n-grams we have then output top probability n-gram. The count discount due to unseen n-grams was chosen to be a random number between 0 and 0.5.
+
+
+```r
+nextword <- function(input = ' New york new york nek york! !'){
+    words <-  tokenizer(char_tolower(input))
+    
+    
+    for(i in 2:1){
+        put <- words[[1]] %>% 
+            tail(i) %>% 
+            paste(., collapse = ' ')
+        
+        nminus1gram <- model %>%
+            filter(ngram == put)
+        
+        if(length(nminus1gram$frequency)==0){
+            next
+        }
+        
+        output <- model %>%
+            filter(grepl(pattern = paste0('^',put,'\\s.*'),x = ngram)) %>%
+            arrange(desc(frequency)) %>% rowwise() %>%
+            mutate(prob = (frequency-runif(1,max = .5))/nminus1gram$frequency) %>%
+            head(1)
+        
+        
+        if(lengths(output[,1])!=0){
+            return(tail(strsplit(output$ngram,' ')[[1]],1))
+            
+        }
+        
+    }
+    
+    output <- model1 %>%
+        arrange(desc(frequency)) %>% 
+        mutate(prob = frequency/sum(frequency)) %>%
+        head(1)
+    
+    stopCluster(cluster)
+    registerDoSEQ()
+    return(tail(strsplit(output$ngram,' ')[[1]],1))
+}
+```
+
+Some more examples follows:
+
+
+```r
+nextword("The guy in front of me just bought a pound of bacon, a bouquet, and a case of")
+```
+
+```
+## [1] "wondering"
+```
+
+
+```r
+nextword("You're the reason why I smile everyday. Can you follow me please? It would mean the")
+```
+
+```
+## [1] "world"
+```
+
+
+```r
+nextword("Hey sunshine, can you follow me and make me the")
+```
+
+```
+## [1] "happy"
+```
+
+
+```r
+nextword("Very early observations on the Bills game: Offense still struggling but the")
+```
+
+```
+## [1] "get"
+```
+
+
+```r
+nextword("Go on a romantic date at the")
+```
+
+```
+## [1] "night"
+```
+
+
+```r
+nextword("Well I'm pretty sure my granny has some old bagpipes in her garage I'll dust them off and be on my")
+```
+
+```
+## [1] "storms"
+```
+
+
+```r
+nextword("Ohhhhh #PointBreak is on tomorrow. Love that film and haven't seen it in quite some")
+```
+
+```
+## [1] "time"
+```
+
+
+```r
+nextword("After the ice bucket challenge Louis will push his long wet hair out of his eyes with his little")
+```
+
+```
+## [1] "bit"
+```
+
+
+```r
+nextword("Be grateful for the good times and keep the faith during the")
+```
+
+```
+## [1] "good"
+```
+
+
+```r
+nextword("If this isn't the cutest thing you've ever seen, then you must be")
+```
+
+```
+## [1] "say"
+```
+
+It can be seen results doesn't always make sense, but that is because the model doesn't take into account long sentence context, just the last words.
+
+
+
+
 
 
