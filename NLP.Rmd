@@ -13,7 +13,7 @@ knitr::opts_chunk$set(echo = TRUE, cache = F,warning = F)
 
 ## Synopsis
 
-The project was to build a next word suggestion (or prediction) app. This was done with a NLP model using 3 datasets provided by Swiftkey. One from twitter, one from news and one from blogs. The dataset provided the means on which the model would be trained. 
+The project goal was to build a next word suggestion (or prediction) app. This was done with a NLP model using 3 datasets provided by Swiftkey. One from twitter, one from news and one from blogs. The dataset provided the means on which the model would be trained on. 
 
 The resulted app was made available to use at [this webpage](https://wildson-b-b-lima.shinyapps.io/nextword/?_ga=2.227190941.1485234620.1604767179-10188108.1604271857).
 
@@ -21,7 +21,7 @@ The resulted app was made available to use at [this webpage](https://wildson-b-b
 
 Load the R packages needed further. It's also good to set system locale to avoid problems related with system differences between regions.
 
-```{r}
+```{r results='hide'}
 library(data.table, quietly = T, warn.conflicts = F)
 library(dplyr, quietly = T, warn.conflicts = F)
 library(ggplot2, quietly = T, warn.conflicts = F)
@@ -75,7 +75,7 @@ if(!dir.exists(datafinaldir)){
         unzip(datazippath,exdir = datadir)
 }
 
-sourcepaths <- paste0(datafinaldir,'/',dir(paste0(datafinaldir))) 
+sourcepaths <- paste0(datafinaldir,'/',dir(datafinaldir)) 
 ```
 
 Load data into R. 
@@ -88,14 +88,16 @@ profwords <- fread(text=profpath,
                    sep = '',
                    sep2='',
                    data.table = T,
-                   quote='',stringsAsFactors = F)
+                   quote='',
+                   stringsAsFactors = F)
 
 textsnews <- fread(text=sourcepaths[2],
                    header = F,
                    sep = '',
                    sep2='',
                    data.table = T,
-                   quote='',stringsAsFactors = F)
+                   quote='',
+                   stringsAsFactors = F)
 
 textsnews <- rbind(textsnews,fread(text=sourcepaths[2],
                                    header = F,
@@ -103,21 +105,24 @@ textsnews <- rbind(textsnews,fread(text=sourcepaths[2],
                                    sep2='',
                                    data.table = T,
                                    quote='',
-                                   skip = 987097,stringsAsFactors = F))
+                                   skip = 987097,
+                                   stringsAsFactors = F))
 
 textstwitter <- fread(text=sourcepaths[3],
                       header = F,
                       sep = '',
                       sep2='',
                       data.table = T,
-                      quote='',stringsAsFactors = F)
+                      quote='',
+                      stringsAsFactors = F)
 
 textsblogs<-fread(text=sourcepaths[1],
                   header = F,
                   sep = '',
                   sep2='',
                   data.table = T,
-                  quote=' ',stringsAsFactors = F)
+                  quote=' ',
+                  stringsAsFactors = F)
 
 textsblogs <- rbind(textsblogs,
                     fread(text=sourcepaths[1],
@@ -126,7 +131,8 @@ textsblogs <- rbind(textsblogs,
                           sep2='',
                           data.table = T,
                           quote=' ',
-                          skip = 615492,stringsAsFactors = F))
+                          skip = 615492,
+                          stringsAsFactors = F))
 
 textsblogs <- rbind(textsblogs,
                     fread(text=sourcepaths[1],
@@ -135,7 +141,8 @@ textsblogs <- rbind(textsblogs,
                           sep2='',
                           data.table = T,
                           quote=' ',
-                          skip = 741885,stringsAsFactors = F))
+                          skip = 741885,
+                          stringsAsFactors = F))
 ```
 
 ## Brief Exploratory Data Analysis
@@ -157,44 +164,43 @@ twitter <- textstwitter %>%
 ```
 
 ```{r}
-makeplot <- function(title,data){
+makeplot <- function(title,data, binwidth){
         g1<- ggplot(mapping=aes(x = data)) 
-        g1 <- g1 + geom_histogram(binwidth = 10) + theme_bw() 
+        g1 <- g1 + geom_histogram(binwidth = binwidth) + theme_bw() 
         g1 <- g1 + labs(title = title, x = 'Length')
         return(g1)
 }
 ```
 
 ```{r}
-g1 <-makeplot('Twitter', twitter$compri)
-g2 <-makeplot('Blogs', blogs$compri)
-g3 <-makeplot('News', news$compri)
+g1 <-makeplot('Twitter', twitter$compri,10)
+g2 <-makeplot('Blogs', blogs$compri,100)
+g3 <-makeplot('News', news$compri,100)
 ```
 
 ```{r cache=T}
 ggarrange(g1,g2,g3,ncol=3)
 ```
 
-We can see there is some potential outliers in blogs and news. We take care of it right away.
+We can see there is some potential outliers in blogs and news, with text length longer than 2000. We take care of it right away.
 
 ```{r}
-blogs <- blogs %>% filter(compri < 2500)
-news <- news %>% filter(compri < 1500)
+blogs <- blogs %>% filter(compri < 2000)
+news <- news %>% filter(compri < 2000)
 ```
 
 ```{r}
-g1 <-makeplot('Twitter', twitter$compri)
-g2 <-makeplot('Blogs', blogs$compri)
-g3 <-makeplot('News', news$compri)
+g2 <-makeplot('Blogs', blogs$compri,100)
+g3 <-makeplot('News', news$compri,100)
 ```
 
-```{r cache=T}
+```{r cache=TRUE}
 ggarrange(g1,g2,g3,ncol=3)
 ```
 
-We have blogs with highest lengths, followed by news then twitter. Nothing out of the expected given the way each one is used.
+We have news with highest lengths, followed by blogs then twitter. Nothing out of the expected given the way each one is used.
 
-Now, a look at love/hate presence ratio in tweets. 
+Now, a look at love/hate presence ratio in tweets to see if we find some bias. 
 
 ```{r}
 lhratio <- twitter %>% 
@@ -203,7 +209,7 @@ lhratio <- twitter %>%
 lhratio
 ```
 
-We have 4 times more tweets with the word love present than with hate.
+We have 4 times more tweets with the word love present than with the word hate. It's a cheap shot but it might indicate we have more good vibe tweets than bad vibe ones.
 
 Now let's take a look at some tweets, starting with the ones with "biostats" present.
 
@@ -254,7 +260,7 @@ gc(verbose = F)
 
 ### Creating corpus
 
-We need to build a corpus with the sample of texts using the Quanteda package to used further.
+We need to build a corpus with the sample of texts using the Quanteda package.
 
 ```{r eval=FALSE}
 modelcorpus <- corpus(texts$V1)
@@ -352,7 +358,7 @@ wordcloud(words = top$ngram,freq = top$frequency,ordered.colors = T,colors =1:10
 
 ## Prediction  Model
 
-We use a [Katz' back-off](https://en.wikipedia.org/wiki/Katz%27s_back-off_model) model, a generative n-gram language model, to predict next words in a sentence. It estimates the conditional probability of a word given its n-gram history.
+We use a [Katz' back-off](https://en.wikipedia.org/wiki/Katz%27s_back-off_model) model, which is a generative n-gram language model, to predict next words in a sentence. It estimates the conditional probability of a word given its n-gram history.
 
 To do this, we need each n-gram we just build.
 
@@ -408,7 +414,7 @@ nextword <- function(input = ' New york new york nek york! !'){
 
 ```
 
-Some more examples follows:
+Some examples follows:
 
 ```{r}
 nextword("The guy in front of me just bought a pound of bacon, a bouquet, and a case of")

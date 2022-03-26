@@ -29,11 +29,13 @@ library(quanteda, quietly = T, warn.conflicts = F)
 ```
 
 ```
-## Package version: 2.1.2
+## Package version: 3.2.1
+## Unicode version: 13.0
+## ICU version: 69.1
 ```
 
 ```
-## Parallel computing: 2 of 4 threads used.
+## Parallel computing: 4 of 4 threads used.
 ```
 
 ```
