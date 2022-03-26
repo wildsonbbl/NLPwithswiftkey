@@ -3,5 +3,5 @@
 .RData
 .Ruserdata
 NLPwithswiftkey.Rproj
-NLP_cache
-data
+NLP_cache/
+data/
